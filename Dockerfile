@@ -1,6 +1,35 @@
-FROM node:24-alpine
+# Node 24.22.1 index, re-resolved 2026-10-22. Config env NODE_VERSION=24.22.1.
+ARG NODE_IMAGE=node:24.22.1-alpine@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53
+# Go 1.27.3 (2026-10-19) includes the crypto/x509 security fix. Multi-arch index.
+ARG GO_IMAGE=golang:1.27.3-alpine@sha256:d530cf60723abf1ffae0cd16bb546b379ec0550d2f3815e5b16ed69dbc00fba4
+
+# hcloud 1.70.1's release tarball is go1.26.8. pgschema's release tarball is go1.24.13.
+# Both are Go programs, so this stage compiles them with the Go above.
+# GOTOOLCHAIN=local stops go.mod's toolchain line from downloading the older Go.
+FROM ${GO_IMAGE} AS go-tools
+
+ARG HCLOUD_VERSION=1.70.1
+ARG PGSCHEMA_VERSION=1.7.3
+ENV CGO_ENABLED=0
+ENV GOTOOLCHAIN=local
+
+RUN apk add --no-cache git ca-certificates \
+ && go version \
+ && go install -trimpath \
+      -ldflags "-s -w -X github.com/hetznercloud/cli/internal/version.version=${HCLOUD_VERSION} -X github.com/hetznercloud/cli/internal/version.versionPrerelease=" \
+      "github.com/hetznercloud/cli/cmd/hcloud@v${HCLOUD_VERSION}" \
+ && go install -trimpath "github.com/pgplex/pgschema@v${PGSCHEMA_VERSION}" \
+ && hcloud_go=$(go version /go/bin/hcloud) \
+ && pgschema_go=$(go version /go/bin/pgschema) \
+ && printf '%s\n' "$hcloud_go" "$pgschema_go" \
+ && printf '%s\n' "$hcloud_go" | grep -F 'go1.27.3' \
+ && printf '%s\n' "$pgschema_go" | grep -F 'go1.27.3'
+
+FROM ${NODE_IMAGE}
 
 # System tooling — Docker CLI, git, SSH, shells, TLS, timezone data.
+# ca-certificates is installed here so the OS store is this Alpine build,
+# not a layer left over from an older base.
 RUN apk add --no-cache \
       docker-cli \
       docker-cli-buildx \
@@ -24,17 +53,14 @@ RUN apk add --no-cache ruby ruby-dev build-base \
  && apk del ruby-dev build-base \
  && apk add --no-cache ruby
 
-# hcloud CLI — pinned, multi-arch aware.
-ARG HCLOUD_VERSION=1.46.0
-RUN ARCH=$(uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/') \
- && curl -fsSL -o /tmp/hcloud.tar.gz \
-      "https://github.com/hetznercloud/cli/releases/download/v${HCLOUD_VERSION}/hcloud-linux-${ARCH}.tar.gz" \
- && tar -xzf /tmp/hcloud.tar.gz -C /usr/local/bin hcloud \
- && rm /tmp/hcloud.tar.gz \
- && hcloud version
+# Compiled in go-tools with Go 1.27.3. See the stage comment for why.
+COPY --from=go-tools /go/bin/hcloud /usr/local/bin/hcloud
+COPY --from=go-tools /go/bin/pgschema /usr/local/bin/pgschema
+RUN hcloud version && pgschema --help >/dev/null
 
-# GitHub CLI — pinned.
-ARG GH_VERSION=2.63.2
+# GitHub CLI — pinned. The v2.103.0 linux tarball's buildinfo is go1.27.3
+# (read 2026-10-22), so this binary is the upstream build, not a recompile.
+ARG GH_VERSION=2.103.0
 RUN ARCH=$(uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/') \
  && curl -fsSL -o /tmp/gh.tar.gz \
       "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_${ARCH}.tar.gz" \
@@ -43,21 +69,11 @@ RUN ARCH=$(uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/') \
  && rm -rf /tmp/gh.tar.gz /tmp/gh_${GH_VERSION}_linux_${ARCH} \
  && gh --version
 
-# dotenvx — global npm install.
+# dotenvx — global npm install, so it runs on this image's Node.
 RUN npm install -g @dotenvx/dotenvx \
  && dotenvx --version
 
-# pgschema — declarative schema tool. Binary may be glibc-linked; if it can't
-# run on Alpine's musl, we remove it rather than fail the build. Downstream
-# consumers are expected to have a fallback when pgschema is absent.
-ARG PGSCHEMA_VERSION=1.7.3
-RUN ARCH=$(uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/') \
- && curl -fsSL -o /usr/local/bin/pgschema \
-      "https://github.com/pgplex/pgschema/releases/download/v${PGSCHEMA_VERSION}/pgschema-${PGSCHEMA_VERSION}-linux-${ARCH}" \
- && chmod +x /usr/local/bin/pgschema \
- && (pgschema --help >/dev/null 2>&1 || (echo "pgschema incompatible with musl, removing" && rm /usr/local/bin/pgschema))
-
-LABEL org.opencontainers.image.source="https://github.com/MrHetz/node-kamal-base"
+LABEL org.opencontainers.image.source="https://github.com/basedinfra/node-kamal-base"
 LABEL org.opencontainers.image.description="Node 24 Alpine + Kamal + Docker CLI + common DevOps tools"
 LABEL org.opencontainers.image.licenses="MIT"
 

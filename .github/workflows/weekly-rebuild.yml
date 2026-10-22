@@ -1,8 +1,8 @@
 name: Weekly rebuild
 
-# Refresh the :v1 moving tag with current upstream base image + apk security patches.
-# `no-cache: true` is intentional — without it the apk layer would be served from
-# cache and we'd ship stale packages.
+# Refresh the :v1 moving tag. The Node digest is pinned in the Dockerfile, so this
+# does not float to a newer Node. `no-cache: true` still reinstalls Alpine packages
+# (including ca-certificates) instead of replaying a cached apk layer.
 
 on:
   schedule:
