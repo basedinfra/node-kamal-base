@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 for the major tag (`:v1`, `:v2`). Immutable date-stamped tags (`:v1.YYYYMMDD`)
 are produced by the weekly rebuild.
 
-## [v1.1.0] — 2026-10-22
+## [v1.1.1] — 2026-10-22
 
 ### Security
 

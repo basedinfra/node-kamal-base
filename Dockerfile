@@ -19,9 +19,11 @@ RUN apk add --no-cache git ca-certificates \
       -ldflags "-s -w -X github.com/hetznercloud/cli/internal/version.version=${HCLOUD_VERSION} -X github.com/hetznercloud/cli/internal/version.versionPrerelease=" \
       "github.com/hetznercloud/cli/cmd/hcloud@v${HCLOUD_VERSION}" \
  && go install -trimpath "github.com/pgplex/pgschema@v${PGSCHEMA_VERSION}" \
- && set -o pipefail \
- && go version -m /go/bin/hcloud | head -n 1 | grep -F 'go1.27.3' \
- && go version -m /go/bin/pgschema | head -n 1 | grep -F 'go1.27.3'
+ && hcloud_go=$(go version /go/bin/hcloud) \
+ && pgschema_go=$(go version /go/bin/pgschema) \
+ && printf '%s\n' "$hcloud_go" "$pgschema_go" \
+ && printf '%s\n' "$hcloud_go" | grep -F 'go1.27.3' \
+ && printf '%s\n' "$pgschema_go" | grep -F 'go1.27.3'
 
 FROM ${NODE_IMAGE}
 
