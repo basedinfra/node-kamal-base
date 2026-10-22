@@ -9,12 +9,12 @@ re-installing all of that on every cold build, your `Dockerfile` starts with
 one line:
 
 ```dockerfile
-FROM ghcr.io/mrhetz/node-kamal-base:v1
+FROM ghcr.io/basedinfra/node-kamal-base:v1
 ```
 
 ## Image
 
-- **Registry**: [`ghcr.io/mrhetz/node-kamal-base`](https://github.com/MrHetz/node-kamal-base/pkgs/container/node-kamal-base)
+- **Registry**: [`ghcr.io/basedinfra/node-kamal-base`](https://github.com/basedinfra/node-kamal-base/pkgs/container/node-kamal-base)
 - **Architectures**: `linux/amd64`, `linux/arm64`
 - **License**: MIT
 - **Attestations**: provenance + SBOM (viewable on the GHCR package page)
@@ -23,16 +23,16 @@ FROM ghcr.io/mrhetz/node-kamal-base:v1
 
 | Tool | Source | Pin |
 |------|--------|-----|
-| Node 24 + npm | `node:24-alpine` (upstream) | tracks upstream `24-alpine` |
+| Node 24.22.1 + npm | `node:24.22.1-alpine` index | `sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53` |
 | Kamal | `gem install kamal` | `>= 2.10` |
 | Docker CLI + buildx | Alpine `docker-cli`, `docker-cli-buildx` | Alpine package |
 | git, ssh, openssl, bash, curl | Alpine packages | Alpine package |
 | jq, rsync, tini, tzdata, ca-certificates | Alpine packages | Alpine package |
 | postgresql-client (`psql`) | Alpine `postgresql-client` | Alpine package |
-| `hcloud` CLI | GitHub releases | `1.46.0` |
-| `gh` CLI | GitHub releases | `2.63.2` |
+| `hcloud` CLI | compiled here with Go 1.27.3 | `1.70.1` |
+| `gh` CLI | upstream release built with Go 1.27.3 | `2.103.0` |
 | `@dotenvx/dotenvx` | global npm | latest at build time |
-| `pgschema` | GitHub releases | `1.7.3` (optional — removed if musl-incompat) |
+| `pgschema` | compiled here with Go 1.27.3 | `1.7.3` |
 
 Entrypoint is [`tini`](https://github.com/krallin/tini) for signal handling.
 `CMD` is `/bin/bash`. Both are overridable.
@@ -49,13 +49,13 @@ Entrypoint is [`tini`](https://github.com/krallin/tini) for signal handling.
 Pin by digest:
 
 ```dockerfile
-FROM ghcr.io/mrhetz/node-kamal-base@sha256:<digest>
+FROM ghcr.io/basedinfra/node-kamal-base@sha256:<digest>
 ```
 
 Find the current digest:
 
 ```bash
-docker buildx imagetools inspect ghcr.io/mrhetz/node-kamal-base:v1
+docker buildx imagetools inspect ghcr.io/basedinfra/node-kamal-base:v1
 ```
 
 ## Using it
@@ -64,7 +64,7 @@ The image sets no `WORKDIR` — consumers pick their own.
 
 ```dockerfile
 # your app's Dockerfile
-FROM ghcr.io/mrhetz/node-kamal-base:v1
+FROM ghcr.io/basedinfra/node-kamal-base:v1
 
 WORKDIR /app
 COPY package.json package-lock.json ./
@@ -80,7 +80,7 @@ required.
 ## Versioning policy
 
 - **Moving `:v1`** — rebuilt weekly (Mondays 08:00 UTC) to pull in Alpine
-  package updates and any upstream `node:24-alpine` refreshes.
+  package updates. The Node digest in the Dockerfile does not float.
 - **`:v1.YYYYMMDD`** — immutable, produced on every tag push and every weekly
   rebuild.
 - **`:v1.X.Y`** (git tag) — immutable, produced on tag push. Use for
@@ -107,4 +107,4 @@ required.
 
 ## Reporting issues
 
-File issues at <https://github.com/MrHetz/node-kamal-base/issues>. PRs welcome.
+File issues at <https://github.com/basedinfra/node-kamal-base/issues>. PRs welcome.
